@@ -4,6 +4,14 @@ from plugins.eh_telegram_master import TelegramChannel
 
 
 class TelegramExChannel(TelegramChannel):
+    def process_msg(self, msg):
+        if self._flag('linked_only', False):
+            chat_uid = '%s.%s' % (msg.channel_id, msg.origin['uid'])
+            tg_chats = db.get_chat_assoc(slave_uid=chat_uid)
+            if len(tg_chats) == 0:
+                return
+        super().process_msg(msg)
+
     def polling_from_tg(self):
         webhook_url = self._flag('webhook_url', '')
         if webhook_url != '':
