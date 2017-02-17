@@ -1,6 +1,6 @@
 import config
 
-from plugins.eh_telegram_master import TelegramChannel
+from plugins.eh_telegram_master import TelegramChannel, db
 
 
 class TelegramExChannel(TelegramChannel):
