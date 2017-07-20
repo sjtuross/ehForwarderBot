@@ -1344,10 +1344,10 @@ class TelegramChannel(EFBChannel):
             self._reply_error(bot, update, "Message type not supported. (MN01)")
         except EFBMessageError as e:
             self._reply_error(bot, update, "Message is not sent. (MN01)\n\n%s" % str(e))
-        finally:
+        else:
             msg_log_d = {
                 "master_msg_id": "%s.%s" % (update.message.chat_id, update.message.message_id),
-                "text": m.text,
+                "text": m.text or "Sent a %s" % m.type,
                 "slave_origin_uid": "%s.%s" % (m.destination['channel'], m.destination['uid']),
                 "slave_origin_display_name": "__chat__",
                 "msg_type": m.type,
@@ -1585,7 +1585,7 @@ class TelegramChannel(EFBChannel):
         Triggered by python-telegram-bot error callback.
         """
         if "Conflict: terminated by other long poll or webhook (409)" in str(error):
-            msg = 'Please immediately turn off all EFB instances.\nAnother bot instance or webhook detected.'
+            msg = 'Please immediately turn off this EFB instances.\nAnother bot instance or webhook detected.'
             self.logger.critical(msg)
             bot.send_message(getattr(config, self.channel_id)['admins'][0], msg)
             return
@@ -1598,7 +1598,7 @@ class TelegramChannel(EFBChannel):
             bot.send_message(getattr(config, self.channel_id)['admins'][0],
                              "Message request is invalid.\n%s\n<code>%s</code>)" %
                              (html.escape(str(error)), html.escape(str(update))), parse_mode="HTML")
-        except telegram.error.TimedOut:
+        except (telegram.error.TimedOut, telegram.error.NetworkError):
             self.timeout_count += 1
             self.logger.error("Poor internet connection detected.\nError count: %s\n\%s\nUpdate: %s",
                               self.timeout_count, str(error), str(update))
@@ -1606,11 +1606,11 @@ class TelegramChannel(EFBChannel):
                 update.message.reply_text("This message is not processed due to poor internet environment "
                                           "of the server.\n"
                                           "<code>%s</code>" % html.escape(str(error)), quote=True, parse_mode="HTML")
-            if self.timeout_count >= 10:
+            if self.timeout_count % 10 == 0:
                 bot.send_message(getattr(config, self.channel_id)['admins'][0],
                                  "<b>EFB Telegram Master channel</b>\n"
                                  "You may have a poor internet connection on your server. "
-                                 "Currently %s time-out errors are detected.\n"
+                                 "Currently %s time-out/network errors are detected.\n"
                                  "For more details, please refer to the log." % (self.timeout_count),
                                  parse_mode="HTML")
         except telegram.error.ChatMigrated as e:
@@ -1631,11 +1631,14 @@ class TelegramChannel(EFBChannel):
                                  "Report issue: <a href=\"https://github.com/blueset/ehForwarderBot/issues/new\">GitHub Issue Page</a>" %
                                  (html.escape(str(error)), html.escape(str(update))), parse_mode="HTML")
             except:
-                bot.send_message(getattr(config, self.channel_id)['admins'][0],
-                                 "EFB Telegram Master channel encountered error\n%s\n"
-                                 "caused by update\n%s\n\n"
-                                 "Report issue: https://github.com/blueset/ehForwarderBot/issues/new" %
-                                 (html.escape(str(error)), html.escape(str(update))))
+                try:
+                    bot.send_message(getattr(config, self.channel_id)['admins'][0],
+                                     "EFB Telegram Master channel encountered error\n%s\n"
+                                     "caused by update\n%s\n\n"
+                                     "Report issue: https://github.com/blueset/ehForwarderBot/issues/new" %
+                                     (html.escape(str(error)), html.escape(str(update))))
+                except:
+                    self.logger.error("Failed to send error message.")
             self.logger.error('Unhandled telegram bot error!\n'
                               'Update %s caused error %s' % (update, error))
 
